@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Real-time Wi-Fi Signal Strength Analyzer for Windows 10/11. Monitor connected signal strength, scan nearby access points, view live charts, and export CSV reports.">
+    <title>Wi-Fi Signal Strength Analyzer</title>
+    <!-- Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Application Shell -->
+    <div class="app-layout">
+        <!-- Top Navigation / Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo-icon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                        <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="app-title">Wi-Fi Signal Strength Analyzer</h1>
+                    <p class="app-subtitle">Real-Time Windows 10/11 WLAN Telemetry & Access Point Scanner</p>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <!-- Status Badge -->
+                <div id="connection-badge" class="status-badge status-loading" role="status">
+                    <span class="status-indicator"></span>
+                    <span id="connection-status-text" class="status-text">Checking Wi-Fi...</span>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="header-actions">
+                    <button id="btn-scan" class="btn btn-primary" type="button" aria-label="Scan Nearby Networks">
+                        <span class="btn-icon" aria-hidden="true">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="m16 12-4-4-4 4"></path>
+                                <path d="M12 16V8"></path>
+                            </svg>
+                        </span>
+                        <span id="btn-scan-text">Scan Nearby Networks</span>
+                    </button>
+
+                    <button id="btn-export-csv" class="btn btn-secondary" type="button" aria-label="Export Data to CSV">
+                        <span class="btn-icon" aria-hidden="true">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </span>
+                        <span>Export CSV</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-content">
+
+            <!-- Global Alert Banner (Hidden by default, used for adapter errors or disconnection) -->
+            <div id="adapter-alert" class="alert-banner alert-warning" role="alert" style="display: none;">
+                <div class="alert-icon" aria-hidden="true">⚠️</div>
+                <div class="alert-body">
+                    <strong id="alert-title">Wi-Fi Notice:</strong>
+                    <span id="alert-message">Adapter status update will appear here.</span>
+                </div>
+            </div>
+
+            <!-- Top Stats & Metric Cards -->
+            <section class="cards-grid" aria-label="Connected Wi-Fi Overview">
+
+                <!-- Card 1: Signal Strength Gauge -->
+                <div class="card card-signal">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <span class="card-tag">Telemetry</span>
+                            <h2 class="card-title">Signal Strength</h2>
+                        </div>
+                        <span id="signal-quality-badge" class="badge badge-quality badge-unknown">--</span>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="signal-hero">
+                            <div class="signal-value-wrapper">
+                                <span id="signal-percentage" class="signal-number">--</span>
+                                <span class="signal-unit">%</span>
+                            </div>
+
+                            <div class="signal-dbm-wrapper">
+                                <span class="dbm-label">Estimated RSSI:</span>
+                                <span id="signal-dbm" class="dbm-value">-- dBm</span>
+                                <span class="dbm-info-tooltip" title="Derived using standard telecommunications formula: dBm ≈ (Percentage / 2) - 100. Disclosed as an estimate from Windows percentage.">ⓘ</span>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar Container -->
+                        <div class="progress-bar-container" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="signal-progressbar-wrap">
+                            <div id="signal-progress-fill" class="progress-fill" style="width: 0%;"></div>
+                        </div>
+
+                        <!-- Native RSSI & Range Indicator -->
+                        <div class="signal-footer-meta">
+                            <span id="native-rssi-label" class="meta-item">Native Adapter RSSI: <strong id="native-rssi-val">--</strong></span>
+                            <span class="meta-item">Polling interval: <strong>5s</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Connected Network Details -->
+                <div class="card card-network">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <span class="card-tag">Active Connection</span>
+                            <h2 class="card-title">Connected Network</h2>
+                        </div>
+                        <span id="connected-state-badge" class="badge badge-state">Detecting</span>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="network-ssid-block">
+                            <span class="label-muted">Current SSID</span>
+                            <h3 id="connected-ssid" class="ssid-heading">Connecting...</h3>
+                        </div>
+
+                        <div class="meta-details-grid">
+                            <div class="meta-cell">
+                                <span class="meta-label">Wi-Fi Channel</span>
+                                <span id="conn-channel" class="meta-val">--</span>
+                            </div>
+                            <div class="meta-cell">
+                                <span class="meta-label">Frequency Band</span>
+                                <span id="conn-band" class="meta-val">--</span>
+                            </div>
+                            <div class="meta-cell">
+                                <span class="meta-label">Radio Protocol</span>
+                                <span id="conn-radio" class="meta-val">--</span>
+                            </div>
+                            <div class="meta-cell">
+                                <span class="meta-label">Security / Auth</span>
+                                <span id="conn-security" class="meta-val">--</span>
+                            </div>
+                            <div class="meta-cell">
+                                <span class="meta-label">Access Point BSSID</span>
+                                <span id="conn-bssid" class="meta-val mono">--</span>
+                            </div>
+                            <div class="meta-cell">
+                                <span class="meta-label">Link Speed (Rx / Tx)</span>
+                                <span id="conn-rates" class="meta-val">-- / -- Mbps</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Session & Environment Statistics -->
+                <div class="card card-environment">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <span class="card-tag">Environment</span>
+                            <h2 class="card-title">Session Telemetry</h2>
+                        </div>
+                        <div class="live-pulse" title="Live Auto Refreshing">
+                            <span class="pulse-dot"></span> Live
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="env-stats-row">
+                            <div class="env-stat-box">
+                                <span class="env-stat-num" id="env-nearby-count">0</span>
+                                <span class="env-stat-label">Nearby APs</span>
+                            </div>
+                            <div class="env-stat-box">
+                                <span class="env-stat-num" id="stat-peak-signal">--%</span>
+                                <span class="env-stat-label">Peak Signal</span>
+                            </div>
+                            <div class="env-stat-box">
+                                <span class="env-stat-num" id="stat-avg-signal">--%</span>
+                                <span class="env-stat-label">Avg Signal</span>
+                            </div>
+                            <div class="env-stat-box">
+                                <span class="env-stat-num" id="stat-readings-count">0/90</span>
+                                <span class="env-stat-label">History Points</span>
+                            </div>
+                        </div>
+
+                        <div class="adapter-info-box">
+                            <div class="adapter-row">
+                                <span class="adapter-label">WLAN Interface:</span>
+                                <span id="adapter-name" class="adapter-value">--</span>
+                            </div>
+                            <div class="adapter-row">
+                                <span class="adapter-label">Adapter Hardware:</span>
+                                <span id="adapter-desc" class="adapter-value text-truncate">--</span>
+                            </div>
+                            <div class="adapter-row">
+                                <span class="adapter-label">Last Refresh:</span>
+                                <span id="last-refresh-time" class="adapter-value">Waiting...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Real-Time Signal Graph Section -->
+            <section class="graph-section" aria-label="Real-Time Signal Strength Graph">
+                <div class="card card-graph">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <span class="card-tag">Real-Time Chart</span>
+                            <h2 class="card-title">Signal Strength Over Time</h2>
+                        </div>
+                        <div class="graph-legend">
+                            <div class="legend-item"><span class="legend-color-dot quality-excellent-bg"></span> Excellent (80-100%)</div>
+                            <div class="legend-item"><span class="legend-color-dot quality-vgood-bg"></span> Very Good (65-79%)</div>
+                            <div class="legend-item"><span class="legend-color-dot quality-good-bg"></span> Good (50-64%)</div>
+                            <div class="legend-item"><span class="legend-color-dot quality-fair-bg"></span> Fair (35-49%)</div>
+                            <div class="legend-item"><span class="legend-color-dot quality-weak-bg"></span> Weak (0-34%)</div>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <!-- Canvas Container -->
+                        <div class="canvas-container" id="canvas-wrapper">
+                            <canvas id="signal-chart" width="1000" height="320" aria-label="Wi-Fi Signal Strength Line Chart" role="img"></canvas>
+                            <!-- Empty State Overlay for Chart -->
+                            <div id="chart-empty-state" class="chart-empty-state" style="display: none;">
+                                <div class="empty-icon">📊</div>
+                                <h3>Collecting Signal Readings...</h3>
+                                <p>Readings are recorded every 5 seconds. The latest 90 samples will be visualized continuously here.</p>
+                            </div>
+                        </div>
+
+                        <!-- Graph Tooltip Overlay (rendered via JS) -->
+                        <div id="chart-tooltip" class="chart-tooltip" style="display: none;"></div>
+
+                        <!-- Graph Summary Footer -->
+                        <div class="graph-footer">
+                            <span class="graph-footer-item">Buffer: <strong>Latest 90 readings (7.5 minutes)</strong></span>
+                            <span class="graph-footer-item" id="graph-span-summary">Span: <strong>0s recorded</strong></span>
+                            <span class="graph-footer-item">Resolution: <strong>1 sample / 5 sec</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Nearby Wi-Fi Network Scanner Section -->
+            <section class="scanner-section" aria-label="Nearby Wi-Fi Networks">
+                <div class="card card-table">
+                    <div class="card-header table-card-header">
+                        <div class="card-title-group">
+                            <span class="card-tag">Access Points</span>
+                            <h2 class="card-title">Nearby Wi-Fi Networks</h2>
+                        </div>
+
+                        <div class="table-actions">
+                            <!-- Filter / Search input -->
+                            <div class="search-input-wrapper">
+                                <span class="search-icon" aria-hidden="true">🔍</span>
+                                <input type="text" id="network-filter-input" placeholder="Filter networks by SSID or BSSID..." aria-label="Filter networks">
+                            </div>
+
+                            <button id="btn-rescan-table" class="btn btn-secondary btn-sm" type="button">
+                                <span>↻ Rescan</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card-body no-padding">
+                        <!-- Loading Bar for Scan -->
+                        <div id="scan-loading-bar" class="scanner-loading-indicator" style="display: none;">
+                            <div class="loading-bar-animated"></div>
+                            <span class="loading-text">Scanning Windows 802.11 Access Points via netsh wlan...</span>
+                        </div>
+
+                        <!-- Table Wrapper for responsive scrolling -->
+                        <div class="table-wrapper">
+                            <table class="networks-table" id="networks-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Network (SSID)</th>
+                                        <th scope="col">Signal Strength</th>
+                                        <th scope="col">Est. dBm</th>
+                                        <th scope="col">Channel & Band</th>
+                                        <th scope="col">Security / Auth</th>
+                                        <th scope="col">Access Point (BSSID)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="networks-table-body">
+                                    <!-- Rendered dynamically by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Empty state when no networks are available -->
+                        <div id="networks-empty-state" class="table-empty-state" style="display: none;">
+                            <div class="empty-icon">📡</div>
+                            <h3 id="empty-state-title">No Nearby Networks Detected</h3>
+                            <p id="empty-state-desc">Click "Scan Nearby Networks" to discover available access points within range of your laptop.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Information & Educational Guide Section -->
+            <section class="guide-section" aria-label="Wi-Fi Signal Standards and Accuracy Disclosures">
+                <div class="card card-guide">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <span class="card-tag">Reference Guide</span>
+                            <h2 class="card-title">Signal Quality Classification & Technical Disclosures</h2>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <!-- 5 Tiers Grid -->
+                        <div class="tiers-grid">
+                            <div class="tier-card tier-excellent">
+                                <div class="tier-header">
+                                    <span class="tier-dot quality-excellent-bg"></span>
+                                    <h4>80% – 100%</h4>
+                                </div>
+                                <span class="tier-badge">Excellent</span>
+                                <p>Optimal throughput, low latency. Ideal for 4K/8K UHD streaming, competitive gaming, and heavy bidirectional transfers.</p>
+                            </div>
+
+                            <div class="tier-card tier-vgood">
+                                <div class="tier-header">
+                                    <span class="tier-dot quality-vgood-bg"></span>
+                                    <h4>65% – 79%</h4>
+                                </div>
+                                <span class="tier-badge">Very Good</span>
+                                <p>Robust and stable connection. Excellent for multiple simultaneous HD video calls, VPNs, and responsive web browsing.</p>
+                            </div>
+
+                            <div class="tier-card tier-good">
+                                <div class="tier-header">
+                                    <span class="tier-dot quality-good-bg"></span>
+                                    <h4>50% – 64%</h4>
+                                </div>
+                                <span class="tier-badge">Good</span>
+                                <p>Reliable for general internet usage, email, standard video streaming, and social media with minimal buffering.</p>
+                            </div>
+
+                            <div class="tier-card tier-fair">
+                                <div class="tier-header">
+                                    <span class="tier-dot quality-fair-bg"></span>
+                                    <h4>35% – 49%</h4>
+                                </div>
+                                <span class="tier-badge">Fair</span>
+                                <p>Usable but vulnerable to attenuation. May experience intermittent speed drops, increased ping, or packet retransmissions.</p>
+                            </div>
+
+                            <div class="tier-card tier-weak">
+                                <div class="tier-header">
+                                    <span class="tier-dot quality-weak-bg"></span>
+                                    <h4>0% – 34%</h4>
+                                </div>
+                                <span class="tier-badge">Weak</span>
+                                <p>Edge of coverage. High packet loss, frequent disconnection risk, and sluggish load times. Relocation recommended.</p>
+                            </div>
+                        </div>
+
+                        <!-- Technical Disclosures & Limitations Box -->
+                        <div class="disclosures-box">
+                            <div class="disclosure-item">
+                                <div class="disclosure-icon">📐</div>
+                                <div>
+                                    <h5>Estimated dBm Calculation & Limitations</h5>
+                                    <p>Windows operating systems expose signal strength as a normalized integer from 0 to 100% rather than raw physical milliwatt RF power. Estimated dBm is calculated using the industry standard linear approximation: <code>dBm ≈ (Signal% / 2) - 100</code>. This is clearly labeled as an estimate. When your wireless driver supports native RSSI reporting (Windows 11+), the native value is displayed alongside.</p>
+                                </div>
+                            </div>
+
+                            <div class="disclosure-item">
+                                <div class="disclosure-icon">🛡️</div>
+                                <div>
+                                    <h5>Browser Sandbox & Operating System Architecture</h5>
+                                    <p>Standard browser JavaScript running in Chrome, Edge, or Firefox operates in a secure client-side sandbox and cannot directly inspect 802.11 radio frames or nearby access points. This application uses a Python Flask backend to securely query native Windows <code>netsh wlan</code> commands and stream live telemetry to the dashboard.</p>
+                                </div>
+                            </div>
+
+                            <div class="disclosure-item">
+                                <div class="disclosure-icon">🌐</div>
+                                <div>
+                                    <h5>Physical Environmental Factors</h5>
+                                    <p>Actual connection performance is influenced by factors beyond signal percentage: physical obstructions (concrete walls, metal partitions), 2.4 GHz vs 5 GHz channel attenuation, co-channel interference from neighboring routers, microwave ovens, Bluetooth transmitters, and adapter antenna design.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-left">
+                <span>Wi-Fi Signal Strength Analyzer • Windows 10/11 Edition</span>
+            </div>
+            <div class="footer-right">
+                <span class="footer-tag">Bound to 127.0.0.1:5000</span>
+                <span class="footer-tag">Python & Flask Backend</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Application JavaScript -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
